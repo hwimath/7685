@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>다항식 빈출 (1)</title>
+  <style>
+    body {
+      background-color: white;
+      color: black;
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    .hidden {
+      display: none;
+    }
+    button {
+      margin: 5px;
+      padding: 8px 12px;
+      font-size: 16px;
+    }
+    #energyContainer {
+      width: 300px;
+      height: 20px;
+      border: 1px solid black;
+      background-color: white;
+      margin: 10px 0;
+    }
+    #energyBar {
+      height: 100%;
+      background-color: black;
+      width: 100%;
+    }
+    .choice-btn {
+      display: block;
+      width: 100%;
+      text-align: left;
+      margin: 4px 0;
+    }
+    #problemBox {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid black;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" defer></script>
+</head>
+<body>
+  <!-- 시작 화면 -->
+  <div id="startScreen">
+    <h1>다항식 빈출 (1)</h1>
+    <p>이름: <input type="text" id="playerName" placeholder="이름 입력"></p>
+    <p>난이도 선택:</p>
+    <label><input type="radio" name="difficulty" value="최상"> 최상 (제한시간 20초, 1문제당 20점)</label><br>
+    <label><input type="radio" name="difficulty" value="상"> 상 (제한시간 30초, 1문제당 15점)</label><br>
+    <label><input type="radio" name="difficulty" value="중"> 중 (제한시간 40초, 1문제당 13점)</label><br>
+    <label><input type="radio" name="difficulty" value="하"> 하 (제한시간 없음, 1문제당 10점)</label><br>
+    <button id="startButton">게임 시작</button>
+  </div>
+
+  <!-- 게임 화면 -->
+  <div id="gameScreen" class="hidden">
+    <div>
+      <span>총 경과 시간: <span id="totalTime">0</span>초</span>
+      &nbsp;&nbsp;&nbsp;
+      <span>점수: <span id="score">0</span></span>
+      &nbsp;&nbsp;&nbsp;
+      <span>남은 기회: <span id="lives">3</span></span>
+    </div>
+    <div id="energyContainer">
+      <div id="energyBar"></div>
+    </div>
+    <div id="problemBox">
+      <!-- 문제 내용이 동적으로 삽입됨 -->
+    </div>
+    <div id="feedback" style="margin-top:10px;"></div>
+    <div id="choices">
+      <!-- 선택지 버튼들이 동적으로 삽입됨 -->
+    </div>
+    <button id="nextButton" disabled>다음 문제</button>
+  </div>
+
+  <!-- 게임 종료 화면 -->
+  <div id="endScreen" class="hidden">
+    <h2>게임 종료</h2>
+    <p>최종 점수: <span id="finalScore"></span></p>
+    <p>총 경과 시간: <span id="finalTime"></span>초</p>
+    <button id="submitScoreButton">점수전송</button>
+    <pre id="response"></pre>
+  </div>
+
+  <script>
+    // 문제 데이터: 유형별 7문제씩, 총 28문제
+    // 모든 수식은 \(...\) 내부에 \dfrac{}{} 등 LaTeX 문법을 사용하여 작성됨.
+    const problems = [
+      // [유형 A]
+      {
+        question: "모든 \\(x\\)가 \\(x^2+2x+3=0\\)을 만족할 때, \\(x^3-x^2-3x-11\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(-5\\)", orig: 0 },
+          { text: "\\(-4\\)", orig: 1 },
+          { text: "\\(-3\\)", orig: 2 },
+          { text: "\\(-2\\)", orig: 3 },
+          { text: "\\(-1\\)", orig: 4 }
+        ],
+        correctIndex: 3
+      },
+      {
+        question: "모든 \\(x\\)가 \\(x^2+x+4=0\\)을 만족할 때, \\(x^3-2x^2+x-7\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(3\\)", orig: 0 },
+          { text: "\\(4\\)", orig: 1 },
+          { text: "\\(5\\)", orig: 2 },
+          { text: "\\(6\\)", orig: 3 },
+          { text: "\\(7\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "모든 \\(x\\)가 \\(x^2+3x+5=0\\)을 만족할 때, \\(x^3-2x^2-10x-18\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(5\\)", orig: 0 },
+          { text: "\\(6\\)", orig: 1 },
+          { text: "\\(7\\)", orig: 2 },
+          { text: "\\(8\\)", orig: 3 },
+          { text: "\\(9\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "모든 \\(x\\)가 \\(x^2+4x+6=0\\)을 만족할 때, \\(x^3-3x^2-22x-32\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(8\\)", orig: 0 },
+          { text: "\\(9\\)", orig: 1 },
+          { text: "\\(10\\)", orig: 2 },
+          { text: "\\(11\\)", orig: 3 },
+          { text: "\\(12\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "모든 \\(x\\)가 \\(x^2-2x+5=0\\)을 만족할 때, \\(x^3+x^2-x+18\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(1\\)", orig: 0 },
+          { text: "\\(2\\)", orig: 1 },
+          { text: "\\(3\\)", orig: 2 },
+          { text: "\\(4\\)", orig: 3 },
+          { text: "\\(5\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "모든 \\(x\\)가 \\(x^2-3x+7=0\\)을 만족할 때, \\(x^3+2x^2-8x+30\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(-7\\)", orig: 0 },
+          { text: "\\(-6\\)", orig: 1 },
+          { text: "\\(-5\\)", orig: 2 },
+          { text: "\\(-4\\)", orig: 3 },
+          { text: "\\(-3\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "모든 \\(x\\)가 \\(x^2+x+6=0\\)을 만족할 때, \\(x^3+5x-2\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(2\\)", orig: 0 },
+          { text: "\\(3\\)", orig: 1 },
+          { text: "\\(4\\)", orig: 2 },
+          { text: "\\(5\\)", orig: 3 },
+          { text: "\\(6\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      // [유형 B]
+      {
+        question: "단, \\(x>1\\)이고 \\(x^2-3x+1=0\\)일 때, \\(x^3+\\dfrac{1}{x^3}\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(15\\)", orig: 0 },
+          { text: "\\(16\\)", orig: 1 },
+          { text: "\\(18\\)", orig: 2 },
+          { text: "\\(20\\)", orig: 3 },
+          { text: "\\(21\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "단, \\(x>1\\)이고 \\(x^2-4x+1=0\\)일 때, \\(x^3+\\dfrac{1}{x^3}\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(48\\)", orig: 0 },
+          { text: "\\(50\\)", orig: 1 },
+          { text: "\\(52\\)", orig: 2 },
+          { text: "\\(54\\)", orig: 3 },
+          { text: "\\(56\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "단, \\(x>1\\)이고 \\(x^2-5x+1=0\\)일 때, \\(x^3+\\dfrac{1}{x^3}\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(105\\)", orig: 0 },
+          { text: "\\(107\\)", orig: 1 },
+          { text: "\\(110\\)", orig: 2 },
+          { text: "\\(112\\)", orig: 3 },
+          { text: "\\(115\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "단, \\(x>1\\)이고 \\(x^2-6x+1=0\\)일 때, \\(x^3+\\dfrac{1}{x^3}\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(192\\)", orig: 0 },
+          { text: "\\(194\\)", orig: 1 },
+          { text: "\\(198\\)", orig: 2 },
+          { text: "\\(200\\)", orig: 3 },
+          { text: "\\(202\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "단, \\(x>1\\)이고 \\(x^2-7x+1=0\\)일 때, \\(x^3+\\dfrac{1}{x^3}\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(315\\)", orig: 0 },
+          { text: "\\(317\\)", orig: 1 },
+          { text: "\\(322\\)", orig: 2 },
+          { text: "\\(324\\)", orig: 3 },
+          { text: "\\(330\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "단, \\(x>1\\)이고 \\(x^2-8x+1=0\\)일 때, \\(x^3+\\dfrac{1}{x^3}\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(480\\)", orig: 0 },
+          { text: "\\(484\\)", orig: 1 },
+          { text: "\\(488\\)", orig: 2 },
+          { text: "\\(490\\)", orig: 3 },
+          { text: "\\(495\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "단, \\(x>1\\)이고 \\(x^2-9x+1=0\\)일 때, \\(x^3+\\dfrac{1}{x^3}\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(690\\)", orig: 0 },
+          { text: "\\(696\\)", orig: 1 },
+          { text: "\\(702\\)", orig: 2 },
+          { text: "\\(705\\)", orig: 3 },
+          { text: "\\(710\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      // [유형 C]
+      {
+        question: "다음 항등식이 모든 \\(x\\)에 대해 성립한다. \\(\\dfrac{3x^3+4x^2-5x+2}{1} = a\\,x(x-1)(x+2)+ b\\,x(x+2)+ c\\,x(x-1)+ d\\)에서 \\(a-b+2c+d\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(3\\)", orig: 0 },
+          { text: "\\(4\\)", orig: 1 },
+          { text: "\\(5\\)", orig: 2 },
+          { text: "\\(6\\)", orig: 3 },
+          { text: "\\(7\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "다음 항등식이 모든 \\(x\\)에 대해 성립한다. \\(\\dfrac{x^3+6x^2-x+2}{1} = a\\,x(x-2)(x+3)+ b\\,x(x+3)+ c\\,x(x-2)+ d\\)에서 \\(a-b+2c+d\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(1\\)", orig: 0 },
+          { text: "\\(2\\)", orig: 1 },
+          { text: "\\(3\\)", orig: 2 },
+          { text: "\\(4\\)", orig: 3 },
+          { text: "\\(5\\)", orig: 4 }
+        ],
+        correctIndex: 3
+      },
+      {
+        question: "다음 항등식이 모든 \\(x\\)에 대해 성립한다. \\(\\dfrac{x^3+5x^2+2x}{1} = a\\,x(x-1)(x+3)+ b\\,x(x+3)+ c\\,x(x-1)+ d\\)에서 \\(a-b+2c+d\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(0\\)", orig: 0 },
+          { text: "\\(1\\)", orig: 1 },
+          { text: "\\(2\\)", orig: 2 },
+          { text: "\\(3\\)", orig: 3 },
+          { text: "\\(4\\)", orig: 4 }
+        ],
+        correctIndex: 1
+      },
+      {
+        question: "다음 항등식이 모든 \\(x\\)에 대해 성립한다. \\(\\dfrac{2x^3+11x^2-9x+1}{1} = a\\,x(x-2)(x+5)+ b\\,x(x+5)+ c\\,x(x-2)+ d\\)에서 \\(a-b+2c+d\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(2\\)", orig: 0 },
+          { text: "\\(3\\)", orig: 1 },
+          { text: "\\(4\\)", orig: 2 },
+          { text: "\\(5\\)", orig: 3 },
+          { text: "\\(6\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "다음 항등식이 모든 \\(x\\)에 대해 성립한다. \\(\\dfrac{3x^3+8x^2-16x-2}{1} = a\\,x(x-3)(x+4)+ b\\,x(x+4)+ c\\,x(x-3)+ d\\)에서 \\(a-b+2c+d\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(-6\\)", orig: 0 },
+          { text: "\\(-5\\)", orig: 1 },
+          { text: "\\(-4\\)", orig: 2 },
+          { text: "\\(-3\\)", orig: 3 },
+          { text: "\\(-2\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "다음 항등식이 모든 \\(x\\)에 대해 성립한다. \\(\\dfrac{x^3+10x^2+4x-1}{1} = a\\,x(x-1)(x+4)+ b\\,x(x+4)+ c\\,x(x-1)+ d\\)에서 \\(a-b+2c+d\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(3\\)", orig: 0 },
+          { text: "\\(4\\)", orig: 1 },
+          { text: "\\(5\\)", orig: 2 },
+          { text: "\\(6\\)", orig: 3 },
+          { text: "\\(7\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "다음 항등식이 모든 \\(x\\)에 대해 성립한다. \\(\\dfrac{2x^3+9x^2-4x+3}{1} = a\\,x(x-3)(x+2)+ b\\,x(x+2)+ c\\,x(x-3)+ d\\)에서 \\(a-b+2c+d\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(2\\)", orig: 0 },
+          { text: "\\(3\\)", orig: 1 },
+          { text: "\\(4\\)", orig: 2 },
+          { text: "\\(5\\)", orig: 3 },
+          { text: "\\(6\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      // [유형 D]
+      {
+        question: "다음 등식이 모든 \\(k\\)에 대해 성립한다. \\((3k+2)x+2ky-(4-2k)=0\\)에서 상수 \\(x, y\\)에 대해 \\(x^2+y^2\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(10\\)", orig: 0 },
+          { text: "\\(16\\)", orig: 1 },
+          { text: "\\(18\\)", orig: 2 },
+          { text: "\\(20\\)", orig: 3 },
+          { text: "\\(24\\)", orig: 4 }
+        ],
+        correctIndex: 3
+      },
+      {
+        question: "다음 등식이 모든 \\(k\\)에 대해 성립한다. \\((k-2)x+(k-1)y-(8k-11)=0\\)에서 상수 \\(x, y\\)에 대해 \\(x^2+y^2\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(25\\)", orig: 0 },
+          { text: "\\(30\\)", orig: 1 },
+          { text: "\\(34\\)", orig: 2 },
+          { text: "\\(36\\)", orig: 3 },
+          { text: "\\(40\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "다음 등식이 모든 \\(k\\)에 대해 성립한다. \\((3k+4)x+(2k+1)y-(10-5k)=0\\)에서 상수 \\(x, y\\)에 대해 \\(x^2+y^2\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(100\\)", orig: 0 },
+          { text: "\\(120\\)", orig: 1 },
+          { text: "\\(125\\)", orig: 2 },
+          { text: "\\(130\\)", orig: 3 },
+          { text: "\\(140\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "다음 등식이 모든 \\(k\\)에 대해 성립한다. \\((k+2)x+(k+3)y-(k-1)=0\\)에서 상수 \\(x, y\\)에 대해 \\(x^2+y^2\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(16\\)", orig: 0 },
+          { text: "\\(20\\)", orig: 1 },
+          { text: "\\(25\\)", orig: 2 },
+          { text: "\\(30\\)", orig: 3 },
+          { text: "\\(36\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "다음 등식이 모든 \\(k\\)에 대해 성립한다. \\((2k+1)x+(-k+2)y-(-k+12)=0\\)에서 상수 \\(x, y\\)에 대해 \\(x^2+y^2\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(25\\)", orig: 0 },
+          { text: "\\(27\\)", orig: 1 },
+          { text: "\\(29\\)", orig: 2 },
+          { text: "\\(31\\)", orig: 3 },
+          { text: "\\(33\\)", orig: 4 }
+        ],
+        correctIndex: 2
+      },
+      {
+        question: "다음 등식이 모든 \\(k\\)에 대해 성립한다. \\((k+2)x+(k-3)y-(7k-1)=0\\)에서 상수 \\(x, y\\)에 대해 \\(x^2+y^2\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(25\\)", orig: 0 },
+          { text: "\\(27\\)", orig: 1 },
+          { text: "\\(29\\)", orig: 2 },
+          { text: "\\(31\\)", orig: 3 },
+          { text: "\\(33\\)", orig: 4 }
+        ],
+        correctIndex: 0
+      },
+      {
+        question: "다음 등식이 모든 \\(k\\)에 대해 성립한다. \\((k-3)x+(2k+5)y-(10k-8)=0\\)에서 상수 \\(x, y\\)에 대해 \\(x^2+y^2\\)의 값을 구하라.",
+        choices: [
+          { text: "\\(25\\)", orig: 0 },
+          { text: "\\(30\\)", orig: 1 },
+          { text: "\\(34\\)", orig: 2 },
+          { text: "\\(36\\)", orig: 3 },
+          { text: "\\(40\\)", orig: 4 }
+        ],
+        correctIndex: 4
+      }
+    ];
+
+    // 게임 관련 변수들
+    let shuffledProblems = [];
+    let currentProblemIndex = 0;
+    let score = 0;
+    let lives = 3;
+    let totalTimeElapsed = 0;
+    let gameInterval, questionTimer;
+    let questionTimeLimit = 0; // 난이도별 제한 시간 (초)
+    let remainingTime = 0;
+    let difficulty = "";
+    let pointsPerProblem = 0;
+    let gameStarted = false;
+    let startTimestamp = 0;
+
+    // 난이도별 설정
+    const difficultySettings = {
+      "최상": { timeLimit: 20, points: 20 },
+      "상":   { timeLimit: 30, points: 15 },
+      "중":   { timeLimit: 40, points: 13 },
+      "하":   { timeLimit: 0,  points: 10 } // 0이면 시간 제한 없음
+    };
+
+    // 배열 섞기 함수
+    function shuffleArray(array) {
+      for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]];
+      }
+      return array;
+    }
+
+    // 문제 초기화: 문제 순서를 섞음.
+    function initProblems() {
+      shuffledProblems = shuffleArray(problems.slice());
+      currentProblemIndex = 0;
+    }
+
+    // 총 경과 시간 업데이트
+    function updateTotalTime() {
+      totalTimeElapsed = Math.floor((Date.now() - startTimestamp) / 1000);
+      document.getElementById("totalTime").innerText = totalTimeElapsed;
+    }
+
+    // 에너지바 업데이트
+    function updateEnergyBar() {
+      if (questionTimeLimit > 0) {
+        const percent = (remainingTime / questionTimeLimit) * 100;
+        document.getElementById("energyBar").style.width = percent + "%";
+      }
+    }
+
+    // 문제 및 선택지 표시 (선택지는 무작위로 섞음; 각 버튼에 data-orig로 원래 인덱스 저장)
+    function showProblem() {
+      document.getElementById("feedback").innerText = "";
+      document.getElementById("nextButton").disabled = true;
+      const problem = shuffledProblems[currentProblemIndex];
+      document.getElementById("problemBox").innerHTML = "<p>" + problem.question + "</p>";
+      let choicesHtml = "";
+      const choicesShuffled = shuffleArray(problem.choices.slice());
+      choicesShuffled.forEach(choice => {
+        choicesHtml += `<button class="choice-btn" data-orig="${choice.orig}">${choice.text}</button>`;
+      });
+      document.getElementById("choices").innerHTML = choicesHtml;
+      MathJax.typeset();
+
+      // 각 선택지 버튼에 이벤트 리스너 등록 (원래 인덱스를 이용하여 채점)
+      document.querySelectorAll(".choice-btn").forEach(btn => {
+        btn.addEventListener("click", function() {
+          let selectedIndex = parseInt(this.getAttribute("data-orig"));
+          checkAnswer(selectedIndex);
+        });
+      });
+
+      // 시간 제한이 있을 경우 타이머 시작
+      if (questionTimeLimit > 0) {
+        remainingTime = questionTimeLimit;
+        updateEnergyBar();
+        clearInterval(questionTimer);
+        questionTimer = setInterval(() => {
+          remainingTime--;
+          updateEnergyBar();
+          if (remainingTime <= 0) {
+            clearInterval(questionTimer);
+            processAnswer(null); // 시간 초과 처리
+          }
+        }, 1000);
+      }
+    }
+
+    // 답안 확인 (선택된 원래 인덱스를 사용)
+    function checkAnswer(selectedIndex) {
+      if (!gameStarted) return;
+      clearInterval(questionTimer);
+      processAnswer(selectedIndex);
+    }
+
+    // 답 처리: selectedIndex가 null이면 시간 초과
+    function processAnswer(selectedIndex) {
+      const problem = shuffledProblems[currentProblemIndex];
+      let fb = "";
+      if (selectedIndex === problem.correctIndex) {
+        fb = "정답입니다!";
+        score += pointsPerProblem;
+        document.getElementById("score").innerText = score;
+      } else {
+        if (selectedIndex === null) {
+          fb = "시간 초과! ";
+        } else {
+          fb = "오답! ";
+        }
+        const correctChoice = problem.choices.find(ch => ch.orig === problem.correctIndex);
+        fb += "정답은 " + correctChoice.text + " 입니다.";
+        lives--;
+        document.getElementById("lives").innerText = lives;
+      }
+      document.getElementById("feedback").innerText = fb;
+      MathJax.typeset();
+      document.querySelectorAll(".choice-btn").forEach(btn => {
+        btn.disabled = true;
+      });
+      document.getElementById("nextButton").disabled = false;
+
+      if (lives <= 0) {
+        endGame();
+      }
+    }
+
+    // 다음 문제 버튼 클릭 시
+    document.getElementById("nextButton").addEventListener("click", function() {
+      if (lives <= 0) return;
+      currentProblemIndex++;
+      if (currentProblemIndex >= shuffledProblems.length) {
+        // 모든 문제 사용 후, 무작위로 선택
+        currentProblemIndex = Math.floor(Math.random() * problems.length);
+      }
+      showProblem();
+    });
+
+    // 게임 종료 처리
+    function endGame() {
+      clearInterval(gameInterval);
+      clearInterval(questionTimer);
+      document.getElementById("gameScreen").classList.add("hidden");
+      document.getElementById("endScreen").classList.remove("hidden");
+      document.getElementById("finalScore").innerText = score;
+      document.getElementById("finalTime").innerText = totalTimeElapsed;
+    }
+
+    // 게임 시작
+    document.getElementById("startButton").addEventListener("click", function() {
+      const name = document.getElementById("playerName").value.trim();
+      if (name === "") {
+        alert("이름을 입력하세요.");
+        return;
+      }
+      const diffRadio = document.querySelector('input[name="difficulty"]:checked');
+      if (!diffRadio) {
+        alert("난이도를 선택하세요.");
+        return;
+      }
+      difficulty = diffRadio.value;
+      questionTimeLimit = difficultySettings[difficulty].timeLimit;
+      pointsPerProblem = difficultySettings[difficulty].points;
+      score = 0;
+      lives = 3;
+      totalTimeElapsed = 0;
+      document.getElementById("score").innerText = score;
+      document.getElementById("lives").innerText = lives;
+      initProblems();
+      document.getElementById("startScreen").classList.add("hidden");
+      document.getElementById("gameScreen").classList.remove("hidden");
+      gameStarted = true;
+      startTimestamp = Date.now();
+      gameInterval = setInterval(updateTotalTime, 1000);
+      showProblem();
+    });
+
+    // 점수전송 함수 (서버 전송)
+    function saveData(game, name, score, elapsedTime) {
+      const FUNCTION_URL = "https://us-central1-record-f420d.cloudfunctions.net/report";
+
+      const requestData = {
+          game,
+          name,
+          score: parseInt(score, 10),
+          elapsedTime: parseInt(elapsedTime, 10)
+      };
+
+      try {
+          fetch(FUNCTION_URL, {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json'
+              },
+              body: JSON.stringify(requestData)
+          }).then(response => {
+              return response.json().then(responseData => {
+                  if (response.ok) {
+                      document.getElementById('response').innerText = 
+                          `성공: ${JSON.stringify(responseData, null, 2)}`;
+                  } else {
+                      document.getElementById('response').innerText = 
+                          `오류: ${JSON.stringify(responseData, null, 2)}`;
+                  }
+              });
+          }).catch(error => {
+              console.error('요청 실패:', error);
+              document.getElementById('response').innerText = 
+                  `네트워크 오류: ${error.message}`;
+          });
+      } catch (error) {
+          console.error('요청 실패:', error);
+          document.getElementById('response').innerText = 
+              `네트워크 오류: ${error.message}`;
+      }
+    }
+
+    // 점수전송 버튼 이벤트
+    document.getElementById("submitScoreButton").addEventListener("click", function() {
+      const name = document.getElementById("playerName").value.trim();
+      saveData("다항식 빈출 (1)", name, score, totalTimeElapsed);
+    });
+  </script>
+</body>
+</html>
